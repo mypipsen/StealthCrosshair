@@ -1,8 +1,8 @@
-## Interface: 120000
+## Interface: 120001
 ## Title: StealthCrosshair
 ## Notes: Shows a crosshair in the center of the screen when stealthed.
 ## Author: Bikstok
-## Version: 1.1
+## Version: 1.2
 ## SavedVariables: StealthCrosshairDB
 
 StealthCrosshair.lua
