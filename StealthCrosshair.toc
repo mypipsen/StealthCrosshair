@@ -2,7 +2,7 @@
 ## Title: StealthCrosshair
 ## Notes: Shows a crosshair in the center of the screen when stealthed.
 ## Author: Bikstok
-## Version: 1.2
+## Version: 1.3.0
 ## SavedVariables: StealthCrosshairDB
 
 StealthCrosshair.lua
