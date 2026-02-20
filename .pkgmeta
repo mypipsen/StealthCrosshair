@@ -3,3 +3,5 @@ ignore:
   - .github
   - README.md
   - LICENSE
+changelog:
+  type: markdown
