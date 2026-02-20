@@ -1,11 +1,20 @@
 -- 1. SETUP & VARIABLES ----------------------------
 local AddonName = "StealthCrosshair"
 local frame = CreateFrame("Frame", "StealthCrosshairMain", UIParent)
+local unpack = unpack
+local tostring = tostring
+local tonumber = tonumber
 
 local hBorder = frame:CreateTexture(nil, "BACKGROUND")
 local vBorder = frame:CreateTexture(nil, "BACKGROUND")
 local hLine = frame:CreateTexture(nil, "ARTWORK")
 local vLine = frame:CreateTexture(nil, "ARTWORK")
+
+-- Static anchors (set once at initialization)
+hLine:SetPoint("CENTER")
+vLine:SetPoint("CENTER")
+hBorder:SetPoint("CENTER")
+vBorder:SetPoint("CENTER")
 
 local defaults = {
     Color = { 0, 1, 0, 1 },
@@ -37,21 +46,17 @@ local function UpdateVisuals()
     frame:SetPoint("CENTER", UIParent, "CENTER", x, y)
 
     hLine:SetSize(s, t)
-    hLine:SetPoint("CENTER")
     hLine:SetColorTexture(unpack(c))
 
     vLine:SetSize(t, s)
-    vLine:SetPoint("CENTER")
     vLine:SetColorTexture(unpack(c))
 
     if bt > 0 then
         hBorder:Show()
         vBorder:Show()
         hBorder:SetSize(s + (bt * 2), t + (bt * 2))
-        hBorder:SetPoint("CENTER")
         hBorder:SetColorTexture(unpack(bc))
         vBorder:SetSize(t + (bt * 2), s + (bt * 2))
-        vBorder:SetPoint("CENTER")
         vBorder:SetColorTexture(unpack(bc))
     else
         hBorder:Hide()
@@ -70,6 +75,7 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         end
         self:CreateOptionsPanel()
         UpdateVisuals()
+        self:UnregisterEvent("ADDON_LOADED")
     end
 end)
 
@@ -82,16 +88,22 @@ function frame:CreateOptionsPanel()
     title:SetPoint("TOPLEFT", 16, -16)
     title:SetText("Stealth Crosshair Settings")
 
-    -- ALIGNED COLOR PICKER HELPER
-    local function CreateColorPicker(name, labelText, parent, anchorTo, getVal, setVal)
-        local label = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-        label:SetSize(120, 20) -- Matched to Input width for alignment
+    -- Layout cursor: chains each row below the previous
+    local lastAnchor = title
+    local function AddRow(label)
+        label:SetPoint("TOPLEFT", lastAnchor, "BOTTOMLEFT", 0, lastAnchor == title and -25 or -20)
+        lastAnchor = label
+    end
+
+    -- COLOR PICKER HELPER
+    local function CreateColorPicker(labelText, getVal, setVal)
+        local label = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        label:SetSize(120, 20)
         label:SetJustifyH("LEFT")
         label:SetText(labelText)
 
-        local swatch = CreateFrame("Button", nil, parent, "ColorSwatchTemplate")
+        local swatch = CreateFrame("Button", nil, panel, "ColorSwatchTemplate")
         swatch:SetSize(28, 28)
-        -- Standardized offset (10px gap from the 120px label)
         swatch:SetPoint("LEFT", label, "RIGHT", 10, 0)
 
         local bg = swatch:CreateTexture(nil, "BACKGROUND")
@@ -99,30 +111,28 @@ function frame:CreateOptionsPanel()
         bg:SetSize(22, 22)
         bg:SetColorTexture(unpack(getVal()))
 
+        local colorScratch = {}
+        local function onColorChanged()
+            local nr, ng, nb = ColorPickerFrame:GetColorRGB()
+            local na = ColorPickerFrame:GetColorAlpha()
+            colorScratch[1], colorScratch[2], colorScratch[3], colorScratch[4] = nr, ng, nb, na
+            setVal(colorScratch)
+            bg:SetColorTexture(nr, ng, nb, na)
+            UpdateVisuals()
+        end
+
         swatch:SetScript("OnClick", function()
             local color = getVal()
             ColorPickerFrame:SetupColorPickerAndShow({
-                r = color[1],
-                g = color[2],
-                b = color[3],
+                r = color[1], g = color[2], b = color[3],
                 opacity = color[4] or 1,
                 hasOpacity = true,
-                swatchFunc = function()
-                    local nr, ng, nb = ColorPickerFrame:GetColorRGB()
-                    local na = ColorPickerFrame:GetColorAlpha()
-                    setVal({ nr, ng, nb, na })
-                    bg:SetColorTexture(nr, ng, nb, na)
-                    UpdateVisuals()
-                end,
-                opacityFunc = function()
-                    local nr, ng, nb = ColorPickerFrame:GetColorRGB()
-                    local na = ColorPickerFrame:GetColorAlpha()
-                    setVal({ nr, ng, nb, na })
-                    bg:SetColorTexture(nr, ng, nb, na)
-                    UpdateVisuals()
-                end,
+                swatchFunc = onColorChanged,
+                opacityFunc = onColorChanged,
                 cancelFunc = function(prev)
-                    setVal({ prev.r, prev.g, prev.b, prev.opacity })
+                    colorScratch[1], colorScratch[2], colorScratch[3], colorScratch[4] = prev.r, prev.g, prev.b,
+                        prev.opacity
+                    setVal(colorScratch)
                     bg:SetColorTexture(prev.r, prev.g, prev.b, prev.opacity)
                     UpdateVisuals()
                 end,
@@ -132,120 +142,81 @@ function frame:CreateOptionsPanel()
         return label, swatch
     end
 
-    -- ALIGNED EDITBOX HELPER
-    local function CreateInput(name, parent, labelText, getVal, setVal)
-        local label = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    -- INPUT HELPER
+    local function CreateInput(name, labelText, getVal, setVal)
+        local label = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
         label:SetSize(120, 20)
         label:SetJustifyH("LEFT")
         label:SetText(labelText)
 
-        local eb = CreateFrame("EditBox", name, parent, "InputBoxTemplate")
+        local eb = CreateFrame("EditBox", name, panel, "InputBoxTemplate")
         eb:SetSize(80, 24)
         eb:SetAutoFocus(false)
         eb:SetTextInsets(5, 5, 0, 0)
         eb:SetPoint("LEFT", label, "RIGHT", 10, 0)
 
         local function Refresh()
-            local val = getVal()
-            eb:SetText(tostring(val or ""))
+            eb:SetText(tostring(getVal() or ""))
             eb:SetCursorPosition(0)
         end
 
         eb:SetScript("OnEnterPressed", function(self)
             local val = tonumber(self:GetText())
-            if val then
-                setVal(val)
-                UpdateVisuals()
-            end
+            if val then setVal(val); UpdateVisuals() end
             self:ClearFocus()
         end)
-
         eb:SetScript("OnEditFocusLost", Refresh)
         panel:HookScript("OnShow", Refresh)
-
         Refresh()
         return label, eb
     end
 
-    -- Setup Layout
-    local mainColorLabel, mainSwatch = CreateColorPicker("MainColor", "Crosshair Color", panel, title, function()
-        return StealthCrosshairDB.Color
-    end, function(val)
-        StealthCrosshairDB.Color = val
-    end)
-    mainColorLabel:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -25)
+    -- COLOR ROWS
+    local mainLabel, mainSwatch = CreateColorPicker("Crosshair Color",
+        function() return StealthCrosshairDB.Color end,
+        function(v) StealthCrosshairDB.Color = v end)
+    AddRow(mainLabel)
 
-    local borderColorLabel, borderSwatch = CreateColorPicker(
-        "BorderColor",
-        "Border Color",
-        panel,
-        mainColorLabel,
-        function()
-            return StealthCrosshairDB.BorderColor
-        end,
-        function(val)
-            StealthCrosshairDB.BorderColor = val
-        end
-    )
-    borderColorLabel:SetPoint("TOPLEFT", mainColorLabel, "BOTTOMLEFT", 0, -20)
+    local borderLabel, borderSwatch = CreateColorPicker("Border Color",
+        function() return StealthCrosshairDB.BorderColor end,
+        function(v) StealthCrosshairDB.BorderColor = v end)
+    AddRow(borderLabel)
 
-    local sizeLabel, sizeEB = CreateInput("SCSizeEB", panel, "Crosshair Size:", function()
-        return StealthCrosshairDB.Size
-    end, function(val)
-        StealthCrosshairDB.Size = val
-    end)
-    sizeLabel:SetPoint("TOPLEFT", borderColorLabel, "BOTTOMLEFT", 0, -20)
-
-    local thickLabel, thickEB = CreateInput("SCThickEB", panel, "Line Thickness:", function()
-        return StealthCrosshairDB.Thickness
-    end, function(val)
-        StealthCrosshairDB.Thickness = val
-    end)
-    thickLabel:SetPoint("TOPLEFT", sizeLabel, "BOTTOMLEFT", 0, -20)
-
-    local bThickLabel, bThickEB = CreateInput("SCBThickEB", panel, "Border Width:", function()
-        return StealthCrosshairDB.BorderThickness
-    end, function(val)
-        StealthCrosshairDB.BorderThickness = val
-    end)
-    bThickLabel:SetPoint("TOPLEFT", thickLabel, "BOTTOMLEFT", 0, -20)
-
-    local xLabel, xEB = CreateInput("SCXEB", panel, "Horizontal (X):", function()
-        return StealthCrosshairDB.OffsetX
-    end, function(val)
-        StealthCrosshairDB.OffsetX = val
-    end)
-    xLabel:SetPoint("TOPLEFT", bThickLabel, "BOTTOMLEFT", 0, -20)
-
-    local yLabel, yEB = CreateInput("SCYEB", panel, "Vertical (Y):", function()
-        return StealthCrosshairDB.OffsetY
-    end, function(val)
-        StealthCrosshairDB.OffsetY = val
-    end)
-    yLabel:SetPoint("TOPLEFT", xLabel, "BOTTOMLEFT", 0, -20)
+    -- NUMERIC INPUT ROWS (data-driven)
+    local inputDefs = {
+        { "SCSizeEB", "Crosshair Size:", "Size" },
+        { "SCThickEB", "Line Thickness:", "Thickness" },
+        { "SCBThickEB", "Border Width:", "BorderThickness" },
+        { "SCXEB", "Horizontal (X):", "OffsetX" },
+        { "SCYEB", "Vertical (Y):", "OffsetY" },
+    }
+    local editBoxes = {}
+    for _, def in ipairs(inputDefs) do
+        local id, text, key = def[1], def[2], def[3]
+        local label, eb = CreateInput(id, text,
+            function() return StealthCrosshairDB[key] end,
+            function(v) StealthCrosshairDB[key] = v end)
+        AddRow(label)
+        editBoxes[key] = eb
+    end
 
     local inputTip = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-    inputTip:SetPoint("TOPLEFT", yLabel, "BOTTOMLEFT", 0, -10)
+    inputTip:SetPoint("TOPLEFT", lastAnchor, "BOTTOMLEFT", 0, -10)
     inputTip:SetText("Press Enter in any box to save the new value.")
 
     -- RESET BUTTON
     local resetButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     resetButton:SetSize(160, 30)
     resetButton:SetText("Restore defaults")
-    resetButton:SetPoint("TOPLEFT", yLabel, "BOTTOMLEFT", 0, -40)
+    resetButton:SetPoint("TOPLEFT", lastAnchor, "BOTTOMLEFT", 0, -40)
     resetButton:SetScript("OnClick", function()
         _G["StealthCrosshairDB"] = nil
         StealthCrosshairDB = CopyTable(defaults)
-
-        -- Refresh UI
-        sizeEB:SetText(tostring(defaults.Size))
-        thickEB:SetText(tostring(defaults.Thickness))
-        bThickEB:SetText(tostring(defaults.BorderThickness))
-        xEB:SetText(tostring(defaults.OffsetX))
-        yEB:SetText(tostring(defaults.OffsetY))
+        for key, eb in pairs(editBoxes) do
+            eb:SetText(tostring(defaults[key]))
+        end
         mainSwatch.bg:SetColorTexture(unpack(defaults.Color))
         borderSwatch.bg:SetColorTexture(unpack(defaults.BorderColor))
-
         UpdateVisuals()
         print("|cFF00FF00StealthCrosshair|r: Restored default settings.")
     end)
