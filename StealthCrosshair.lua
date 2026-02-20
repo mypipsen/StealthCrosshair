@@ -8,13 +8,13 @@ local hLine = frame:CreateTexture(nil, "ARTWORK")
 local vLine = frame:CreateTexture(nil, "ARTWORK")
 
 local defaults = {
-    Color = {0, 1, 0, 1},
+    Color = { 0, 1, 0, 1 },
     Size = 25,
     Thickness = 3,
     OffsetX = 0,
     OffsetY = 0,
     BorderThickness = 0,
-    BorderColor = {0, 0, 0, 1}
+    BorderColor = { 0, 0, 0, 1 },
 }
 
 -- 2. CORE FUNCTIONS -------------------------------
@@ -110,22 +110,22 @@ function frame:CreateOptionsPanel()
                 swatchFunc = function()
                     local nr, ng, nb = ColorPickerFrame:GetColorRGB()
                     local na = ColorPickerFrame:GetColorAlpha()
-                    setVal({nr, ng, nb, na})
+                    setVal({ nr, ng, nb, na })
                     bg:SetColorTexture(nr, ng, nb, na)
                     UpdateVisuals()
                 end,
                 opacityFunc = function()
                     local nr, ng, nb = ColorPickerFrame:GetColorRGB()
                     local na = ColorPickerFrame:GetColorAlpha()
-                    setVal({nr, ng, nb, na})
+                    setVal({ nr, ng, nb, na })
                     bg:SetColorTexture(nr, ng, nb, na)
                     UpdateVisuals()
                 end,
                 cancelFunc = function(prev)
-                    setVal({prev.r, prev.g, prev.b, prev.opacity})
+                    setVal({ prev.r, prev.g, prev.b, prev.opacity })
                     bg:SetColorTexture(prev.r, prev.g, prev.b, prev.opacity)
                     UpdateVisuals()
-                end
+                end,
             })
         end)
         swatch.bg = bg
@@ -175,12 +175,18 @@ function frame:CreateOptionsPanel()
     end)
     mainColorLabel:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -25)
 
-    local borderColorLabel, borderSwatch = CreateColorPicker("BorderColor", "Border Color", panel, mainColorLabel,
+    local borderColorLabel, borderSwatch = CreateColorPicker(
+        "BorderColor",
+        "Border Color",
+        panel,
+        mainColorLabel,
         function()
             return StealthCrosshairDB.BorderColor
-        end, function(val)
+        end,
+        function(val)
             StealthCrosshairDB.BorderColor = val
-        end)
+        end
+    )
     borderColorLabel:SetPoint("TOPLEFT", mainColorLabel, "BOTTOMLEFT", 0, -20)
 
     local sizeLabel, sizeEB = CreateInput("SCSizeEB", panel, "Crosshair Size:", function()
