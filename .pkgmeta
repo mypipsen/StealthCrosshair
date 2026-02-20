@@ -1,0 +1,5 @@
+ignore:
+  - .gitignore
+  - .github
+  - README.md
+  - LICENSE
