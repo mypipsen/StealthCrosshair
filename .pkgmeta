@@ -4,3 +4,8 @@ ignore:
   - README.md
   - LICENSE
   - logo.jpg
+  - CHANGELOG.md
+
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
