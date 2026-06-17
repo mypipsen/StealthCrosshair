@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.3
+- Bump interface version to 120007
+
 ## 1.3.2
 - Added changelog
 
